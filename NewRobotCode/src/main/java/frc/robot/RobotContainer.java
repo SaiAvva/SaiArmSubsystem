@@ -13,6 +13,8 @@ import frc.robot.commands.MoveArmToPositionCmd;
 import frc.robot.commands.TelescopingArmControlCmd;
 import frc.robot.subsystems.ArmSubsystem;
 import frc.robot.subsystems.ExampleSubsystem;
+import frc.robot.subsystems.SwerveSubsystem;
+import swervelib.SwerveInputStream;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -29,8 +31,11 @@ public class RobotContainer {
   //Initiallizing the Joystick
   private final ArmSubsystem armSubsystem = ArmSubsystem.getInstance();
   private final CommandXboxController joystickArm = new CommandXboxController(Constants.OperatorConstants.kJoystickPort);
+  private final CommandXboxController m_driverController = new CommandXboxController(OperatorConstants.kDriverControllerPort);
   private final JoystickArmControlCmd joystickArmControlCmd = new JoystickArmControlCmd(armSubsystem, ()->joystickArm.getLeftY());
   private final TelescopingArmControlCmd telescopingArmControlCmd = new TelescopingArmControlCmd(armSubsystem, () -> joystickArm.getRightY());
+  private final SwerveSubsystem drivebase = new SwerveSubsystem();
+
  
 
   // The robot's subsystems and commands are defined here...
@@ -39,9 +44,7 @@ public class RobotContainer {
   }
 
   // Replace with CommandPS4Controller or CommandJoystick if needed
-  private final CommandXboxController m_driverController =
-      new CommandXboxController(OperatorConstants.kDriverControllerPort);
-
+  
   // private final JoystickButton moveToPosition1Button = new JoystickButton(joystickArm, 1);
   // private final JoystickButton moveToPosition2Button = new JoystickButton(joystickArm,2);
   // private final JoystickButton moveToPosition3Button = new JoystickButton(joystickArm,3);
@@ -60,6 +63,20 @@ public class RobotContainer {
    configureBindings();
     
   }
+
+  SwerveInputStream driveAngularVelocity = SwerveInputStream.of(drivebase.getSwerveDrive(),
+                                                                () -> m_driverController.getLeftY() * -1, 
+                                                                () -> m_driverController.getLeftX() * -1)
+                                                                .withControllerRotationAxis(m_driverController::getRightX) //Needs the X for rotation of the robot
+                                                                .deadband(Constants.SwerveConstants.deadband)
+                                                                .scaleTranslation(0.9)
+                                                                .allianceRelativeControl(true);
+  SwerveInputStream driveDirectAngle = driveAngularVelocity.copy().withControllerHeadingAxis(m_driverController::getRightX, 
+  m_driverController::getRightY).headingWhile(true); //Needs both X and Y to determine angle at it needs to drive straight  
+  
+  Command driveFieldOrientedDirectAngle = drivebase.driveFieldOriented(driveDirectAngle);
+
+  Command driveFieldOrientedAngularVelocity = drivebase.driveFieldOriented(driveAngularVelocity);
 
   private void configureBindings(){
     armSubsystem.setDefaultCommand(joystickArmControlCmd);
